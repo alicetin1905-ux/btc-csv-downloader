@@ -1,0 +1,1706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#080b10">
+
+<title>BTC Impulse Catcher</title>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    background:#080b10;
+    color:#e8edf5;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+}
+
+main{
+    max-width:1150px;
+    margin:auto;
+    padding:18px;
+}
+
+h1{
+    margin:0;
+    font-size:25px;
+}
+
+h2{
+    margin:0 0 12px;
+    font-size:18px;
+}
+
+.subtitle{
+    color:#8793a5;
+    margin-top:5px;
+}
+
+.panel{
+    background:#10151d;
+    border:1px solid #202a38;
+    border-radius:12px;
+    padding:15px;
+    margin-top:15px;
+}
+
+.controls{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:11px;
+}
+
+label{
+    display:block;
+    color:#8d99aa;
+    font-size:12px;
+    margin-bottom:5px;
+}
+
+input,select{
+    width:100%;
+    background:#0b1017;
+    color:#fff;
+    border:1px solid #293548;
+    border-radius:8px;
+    padding:10px;
+    font-size:14px;
+}
+
+button{
+    width:100%;
+    margin-top:15px;
+    padding:13px;
+    border:0;
+    border-radius:9px;
+    background:#1877f2;
+    color:white;
+    font-size:15px;
+    font-weight:800;
+}
+
+button:disabled{
+    opacity:.5;
+}
+
+.status{
+    color:#8d99aa;
+    margin-top:12px;
+    min-height:20px;
+}
+
+progress{
+    width:100%;
+    height:17px;
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+    gap:10px;
+}
+
+.stat{
+    background:#0b1017;
+    border:1px solid #202a38;
+    border-radius:10px;
+    padding:12px;
+}
+
+.stat-title{
+    color:#8490a1;
+    font-size:12px;
+}
+
+.stat-value{
+    font-size:21px;
+    font-weight:800;
+    margin-top:5px;
+}
+
+.green{color:#55d477}
+.red{color:#ff6677}
+.blue{color:#5fa2ff}
+
+.table-wrap{
+    overflow-x:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12px;
+}
+
+th,td{
+    padding:8px;
+    border-bottom:1px solid #202a38;
+    text-align:right;
+    white-space:nowrap;
+}
+
+th:first-child,
+td:first-child{
+    text-align:left;
+}
+
+th{
+    color:#8490a1;
+}
+
+.note{
+    color:#768295;
+    font-size:12px;
+    line-height:1.5;
+}
+
+.hidden{
+    display:none;
+}
+
+.error{
+    color:#ff6677;
+}
+
+.success{
+    color:#55d477;
+}
+
+.footer{
+    margin-top:20px;
+    color:#586577;
+    font-size:11px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<main>
+
+<h1>BTC Impulse Catcher</h1>
+<div class="subtitle">
+Automatic Bybit historical data → indicators → backtest
+</div>
+
+<div class="panel">
+
+<h2>Backtest Settings</h2>
+
+<div class="controls">
+
+<div>
+<label>Timeframe</label>
+<select id="timeframe">
+<option value="5">5 minutes</option>
+<option value="15">15 minutes</option>
+<option value="30" selected>30 minutes</option>
+<option value="60">1 hour</option>
+<option value="240">4 hours</option>
+</select>
+</div>
+
+<div>
+<label>Start date</label>
+<input id="startDate" type="date" value="2024-01-01">
+</div>
+
+<div>
+<label>End date</label>
+<input id="endDate" type="date">
+</div>
+
+<div>
+<label>Starting balance</label>
+<input id="balance" type="number" value="1000">
+</div>
+
+<div>
+<label>Risk per trade %</label>
+<input id="risk" type="number" value="1" step="0.1">
+</div>
+
+<div>
+<label>Stop loss %</label>
+<input id="sl" type="number" value="0.7" step="0.1">
+</div>
+
+<div>
+<label>TP1 %</label>
+<input id="tp1" type="number" value="1" step="0.1">
+</div>
+
+<div>
+<label>TP2 %</label>
+<input id="tp2" type="number" value="2" step="0.1">
+</div>
+
+<div>
+<label>TP3 %</label>
+<input id="tp3" type="number" value="3" step="0.1">
+</div>
+
+</div>
+
+<button id="runButton">
+DOWNLOAD BTC DATA + RUN BACKTEST
+</button>
+
+<div id="status" class="status">
+Ready.
+</div>
+
+<progress id="progress" value="0" max="100"></progress>
+
+</div>
+
+
+<div class="panel">
+
+<h2>Results</h2>
+
+<div id="stats" class="stats">
+
+<div class="stat">
+<div class="stat-title">Status</div>
+<div class="stat-value">—</div>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="panel">
+
+<h2>Trade List</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>Entry</th>
+<th>Side</th>
+<th>Entry Price</th>
+<th>Exit Price</th>
+<th>P&L</th>
+<th>Exit</th>
+</tr>
+</thead>
+
+<tbody id="tradeBody"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
+<div class="panel">
+
+<h2>How it works</h2>
+
+<div class="note">
+
+The page downloads public BTCUSDT linear-perpetual candles directly from Bybit.
+No API key is required.
+
+The downloader works backwards through the available candle pages instead of
+stopping after the newest 1,000 candles.
+
+Strategy components used in this version:
+
+<br><br>
+
+• Chandelier Exit — ATR 4 / multiplier 2<br>
+• ZLSMA — length 38<br>
+• MACD — 5 / 35 / 5<br>
+• Long / short momentum confirmation<br>
+• Risk-based position sizing<br>
+• SL + TP1 + TP2 + TP3<br>
+• ZLSMA exit<br>
+• Equity and drawdown calculation
+
+<br><br>
+
+This is a research/backtesting tool, not an execution engine.
+
+</div>
+
+</div>
+
+<div class="footer">
+BTC Impulse Catcher • Bybit public market data
+</div>
+
+</main>
+
+
+<script>
+
+const $ = id => document.getElementById(id);
+
+const BYBIT_API =
+    "https://api.bybit.com/v5/market/kline";
+
+$("endDate").value =
+    new Date().toISOString().slice(0,10);
+
+
+/* =========================================================
+   BASIC INDICATORS
+========================================================= */
+
+function EMA(values, length){
+
+    const result = [];
+
+    const alpha = 2 / (length + 1);
+
+    let previous = values[0];
+
+    result.push(previous);
+
+    for(let i=1;i<values.length;i++){
+
+        previous =
+            alpha * values[i] +
+            (1-alpha) * previous;
+
+        result.push(previous);
+    }
+
+    return result;
+}
+
+
+function SMA(values, length){
+
+    const result = [];
+
+    let sum = 0;
+
+    for(let i=0;i<values.length;i++){
+
+        sum += values[i];
+
+        if(i >= length){
+            sum -= values[i-length];
+        }
+
+        if(i >= length-1){
+            result.push(sum/length);
+        }else{
+            result.push(null);
+        }
+    }
+
+    return result;
+}
+
+
+/* =========================================================
+   ATR
+========================================================= */
+
+function ATR(candles,length=14){
+
+    const tr=[];
+
+    for(let i=0;i<candles.length;i++){
+
+        if(i===0){
+
+            tr.push(
+                candles[i].h -
+                candles[i].l
+            );
+
+            continue;
+        }
+
+        const c=candles[i];
+        const p=candles[i-1];
+
+        tr.push(
+            Math.max(
+                c.h-c.l,
+                Math.abs(c.h-p.c),
+                Math.abs(c.l-p.c)
+            )
+        );
+    }
+
+    return SMA(tr,length);
+}
+
+
+/* =========================================================
+   MACD 5 / 35 / 5
+========================================================= */
+
+function MACD(candles){
+
+    const closes =
+        candles.map(x=>x.c);
+
+    const fast =
+        EMA(closes,5);
+
+    const slow =
+        EMA(closes,35);
+
+    const line =
+        fast.map((x,i)=>x-slow[i]);
+
+    const signal =
+        EMA(line,5);
+
+    return {
+        line,
+        signal
+    };
+}
+
+
+/* =========================================================
+   ZLSMA 38
+========================================================= */
+
+function ZLSMA(candles,length=38){
+
+    const closes =
+        candles.map(x=>x.c);
+
+    const output=[];
+
+    for(let i=0;i<closes.length;i++){
+
+        if(i<length-1){
+
+            output.push(null);
+            continue;
+        }
+
+        let sx=0;
+        let sy=0;
+        let sxx=0;
+        let sxy=0;
+
+        for(let j=0;j<length;j++){
+
+            const x=j;
+            const y=
+                closes[
+                    i-length+1+j
+                ];
+
+            sx += x;
+            sy += y;
+            sxx += x*x;
+            sxy += x*y;
+        }
+
+        const denominator =
+            length*sxx-sx*sx;
+
+        const slope =
+            denominator===0
+            ? 0
+            : (length*sxy-sx*sy)/
+              denominator;
+
+        const intercept =
+            (sy-slope*sx)/length;
+
+        output.push(
+            intercept +
+            slope*(length-1)
+        );
+    }
+
+    return output;
+}
+
+
+/* =========================================================
+   CHANDELIER EXIT
+   ATR 4 / MULTIPLIER 2
+========================================================= */
+
+function ChandelierExit(
+    candles,
+    atrLength=4,
+    multiplier=2
+){
+
+    const atr =
+        ATR(candles,atrLength);
+
+    const upper=[];
+    const lower=[];
+
+    for(let i=0;i<candles.length;i++){
+
+        if(atr[i]===null){
+
+            upper.push(null);
+            lower.push(null);
+
+            continue;
+        }
+
+        const from =
+            Math.max(
+                0,
+                i-atrLength+1
+            );
+
+        let highest=-Infinity;
+        let lowest=Infinity;
+
+        for(let j=from;j<=i;j++){
+
+            highest =
+                Math.max(
+                    highest,
+                    candles[j].h
+                );
+
+            lowest =
+                Math.min(
+                    lowest,
+                    candles[j].l
+                );
+        }
+
+        upper.push(
+            highest -
+            multiplier*atr[i]
+        );
+
+        lower.push(
+            lowest +
+            multiplier*atr[i]
+        );
+    }
+
+    return {
+        upper,
+        lower
+    };
+}
+
+
+/* =========================================================
+   BYBIT DATA DOWNLOADER
+========================================================= */
+
+async function downloadCandles(){
+
+    const interval =
+        $("timeframe").value;
+
+    const start =
+        new Date(
+            $("startDate").value+
+            "T00:00:00Z"
+        ).getTime();
+
+    const end =
+        new Date(
+            $("endDate").value+
+            "T23:59:59Z"
+        ).getTime();
+
+    if(!start || !end || end<=start){
+
+        throw new Error(
+            "Invalid date range."
+        );
+    }
+
+    let pageEnd=end;
+
+    let all=[];
+
+    let requestCount=0;
+
+    const MAX_REQUESTS=5000;
+
+    while(
+        pageEnd>=start &&
+        requestCount<MAX_REQUESTS
+    ){
+
+        requestCount++;
+
+        const url =
+            BYBIT_API+
+            "?category=linear"+
+            "&symbol=BTCUSDT"+
+            "&interval="+interval+
+            "&start="+start+
+            "&end="+pageEnd+
+            "&limit=1000";
+
+        const response =
+            await fetch(url);
+
+        if(!response.ok){
+
+            throw new Error(
+                "Bybit HTTP error "+
+                response.status
+            );
+        }
+
+        const json =
+            await response.json();
+
+        if(json.retCode!==0){
+
+            throw new Error(
+                json.retMsg ||
+                "Bybit API error"
+            );
+        }
+
+        const rows =
+            json.result &&
+            json.result.list
+            ? json.result.list
+            : [];
+
+        if(!rows.length){
+
+            break;
+        }
+
+        all.push(...rows);
+
+        let oldest=Infinity;
+
+        for(const row of rows){
+
+            oldest =
+                Math.min(
+                    oldest,
+                    Number(row[0])
+                );
+        }
+
+        const totalEstimate =
+            Math.max(
+                1,
+                Math.ceil(
+                    (
+                        end-start
+                    ) /
+                    (
+                        Number(interval)*
+                        60*1000*
+                        1000
+                    )
+                )
+            );
+
+        $("progress").value =
+            Math.min(
+                92,
+                requestCount/
+                totalEstimate*
+                92
+            );
+
+        $("status").textContent =
+            "Downloading candles… "+
+            all.length.toLocaleString()+
+            " received • request "+
+            requestCount;
+
+        /*
+         IMPORTANT:
+         Bybit returns newest-first.
+         Therefore the next request must end
+         immediately BEFORE the oldest candle
+         from the current page.
+        */
+
+        if(
+            oldest<=start ||
+            rows.length<1000
+        ){
+
+            break;
+        }
+
+        pageEnd=oldest-1;
+
+        await sleep(80);
+    }
+
+    /*
+       Remove duplicate timestamps.
+    */
+
+    const unique =
+        new Map();
+
+    for(const row of all){
+
+        const t=Number(row[0]);
+
+        if(
+            t>=start &&
+            t<=end
+        ){
+
+            unique.set(
+                t,
+                {
+                    t,
+                    o:Number(row[1]),
+                    h:Number(row[2]),
+                    l:Number(row[3]),
+                    c:Number(row[4]),
+                    v:Number(row[5])
+                }
+            );
+        }
+    }
+
+    const candles =
+        Array.from(
+            unique.values()
+        ).sort(
+            (a,b)=>a.t-b.t
+        );
+
+    return candles;
+}
+
+
+function sleep(ms){
+
+    return new Promise(
+        resolve=>setTimeout(resolve,ms)
+    );
+}
+
+
+/* =========================================================
+   BACKTEST
+========================================================= */
+
+function backtest(candles){
+
+    const initialBalance =
+        Number($("balance").value);
+
+    const riskPercent =
+        Number($("risk").value)/100;
+
+    const slPercent =
+        Number($("sl").value)/100;
+
+    const tp1Percent =
+        Number($("tp1").value)/100;
+
+    const tp2Percent =
+        Number($("tp2").value)/100;
+
+    const tp3Percent =
+        Number($("tp3").value)/100;
+
+
+    const zlsma =
+        ZLSMA(
+            candles,
+            38
+        );
+
+    const chandelier =
+        ChandelierExit(
+            candles,
+            4,
+            2
+        );
+
+    const macd =
+        MACD(candles);
+
+
+    let balance =
+        initialBalance;
+
+    let peak =
+        initialBalance;
+
+    let maxDrawdown=0;
+
+    let position=null;
+
+    const trades=[];
+
+    const equity=[];
+
+
+    /*
+       Start after enough indicator history.
+    */
+
+    for(
+        let i=40;
+        i<candles.length;
+        i++
+    ){
+
+        const candle =
+            candles[i];
+
+        const previous =
+            candles[i-1];
+
+
+        /* =============================================
+           MANAGE EXISTING POSITION
+        ============================================= */
+
+        if(position){
+
+            let closed=false;
+
+
+            /*
+               STOP LOSS
+            */
+
+            const stopHit =
+                position.side==="LONG"
+                ? candle.l<=position.sl
+                : candle.h>=position.sl;
+
+
+            if(stopHit){
+
+                const exit=
+                    position.sl;
+
+                const pnl =
+                    calculatePnL(
+                        position,
+                        exit
+                    );
+
+                balance+=pnl;
+
+                trades.push({
+
+                    entryTime:
+                        position.time,
+
+                    side:
+                        position.side,
+
+                    entry:
+                        position.entry,
+
+                    exit,
+
+                    pnl,
+
+                    reason:
+                        "STOP LOSS"
+                });
+
+                position=null;
+
+                closed=true;
+            }
+
+
+            /*
+               TAKE PROFITS
+            */
+
+            if(
+                !closed &&
+                position
+            ){
+
+                const currentMove =
+                    position.side==="LONG"
+                    ? candle.c/position.entry-1
+                    : 1-candle.c/position.entry;
+
+
+                /*
+                   TP1
+                */
+
+                if(
+                    !position.tp1 &&
+                    currentMove>=tp1Percent
+                ){
+
+                    const exit =
+                        position.entry*
+                        (
+                            position.side==="LONG"
+                            ? 1+tp1Percent
+                            : 1-tp1Percent
+                        );
+
+                    const pnl =
+                        calculatePnL(
+                            position,
+                            exit
+                        )*0.34;
+
+                    balance+=pnl;
+
+                    position.tp1=true;
+
+                    /*
+                       Move stop to breakeven
+                    */
+
+                    position.sl=
+                        position.entry;
+                }
+
+
+                /*
+                   TP2
+                */
+
+                if(
+                    !position.tp2 &&
+                    currentMove>=tp2Percent
+                ){
+
+                    const exit =
+                        position.entry*
+                        (
+                            position.side==="LONG"
+                            ? 1+tp2Percent
+                            : 1-tp2Percent
+                        );
+
+                    const pnl =
+                        calculatePnL(
+                            position,
+                            exit
+                        )*0.33;
+
+                    balance+=pnl;
+
+                    position.tp2=true;
+                }
+
+
+                /*
+                   TP3
+                */
+
+                if(
+                    !position.tp3 &&
+                    currentMove>=tp3Percent
+                ){
+
+                    const exit =
+                        position.entry*
+                        (
+                            position.side==="LONG"
+                            ? 1+tp3Percent
+                            : 1-tp3Percent
+                        );
+
+                    const pnl =
+                        calculatePnL(
+                            position,
+                            exit
+                        )*0.33;
+
+                    balance+=pnl;
+
+                    trades.push({
+
+                        entryTime:
+                            position.time,
+
+                        side:
+                            position.side,
+
+                        entry:
+                            position.entry,
+
+                        exit,
+
+                        pnl,
+
+                        reason:
+                            "TP3"
+                    });
+
+                    position=null;
+
+                    closed=true;
+                }
+            }
+
+
+            /*
+               ZLSMA EXIT
+            */
+
+            if(
+                !closed &&
+                position &&
+                zlsma[i]!==null
+            ){
+
+                const exitSignal =
+                    position.side==="LONG"
+                    ? candle.c<=zlsma[i]
+                    : candle.c>=zlsma[i];
+
+
+                if(exitSignal){
+
+                    const exit =
+                        candle.c;
+
+                    const pnl =
+                        calculatePnL(
+                            position,
+                            exit
+                        );
+
+                    balance+=pnl;
+
+                    trades.push({
+
+                        entryTime:
+                            position.time,
+
+                        side:
+                            position.side,
+
+                        entry:
+                            position.entry,
+
+                        exit,
+
+                        pnl,
+
+                        reason:
+                            "ZLSMA EXIT"
+                    });
+
+                    position=null;
+                }
+            }
+        }
+
+
+        /* =============================================
+           NEW SIGNAL
+        ============================================= */
+
+        if(!position){
+
+            if(
+                zlsma[i]===null ||
+                chandelier.upper[i]===null ||
+                chandelier.lower[i]===null
+            ){
+
+                equity.push(balance);
+                continue;
+            }
+
+
+            /*
+               LONG
+
+               • Price above ZLSMA
+               • Break above previous CE upper
+               • MACD bullish
+               */
+
+            const longSignal =
+                candle.c>zlsma[i] &&
+                previous.c<=
+                    chandelier.upper[i-1] &&
+                candle.c>
+                    chandelier.upper[i-1] &&
+                macd.line[i]>
+                    macd.signal[i] &&
+                macd.line[i]>0;
+
+
+            /*
+               SHORT
+
+               • Price below ZLSMA
+               • Break below previous CE lower
+               • MACD bearish
+               */
+
+            const shortSignal =
+                candle.c<zlsma[i] &&
+                previous.c>=
+                    chandelier.lower[i-1] &&
+                candle.c<
+                    chandelier.lower[i-1] &&
+                macd.line[i]<
+                    macd.signal[i] &&
+                macd.line[i]<0;
+
+
+            if(
+                longSignal ||
+                shortSignal
+            ){
+
+                const side =
+                    longSignal
+                    ? "LONG"
+                    : "SHORT";
+
+                const entry =
+                    candle.c;
+
+                const sl =
+                    side==="LONG"
+                    ? entry*(1-slPercent)
+                    : entry*(1+slPercent);
+
+
+                /*
+                   Risk-based position sizing.
+
+                   Example:
+                   $1,000 balance
+                   1% risk
+                   0.7% SL
+
+                   Risk = $10
+                   Position notional ≈ $1,428.57
+                */
+
+                const riskAmount =
+                    balance*
+                    riskPercent;
+
+                const notional =
+                    riskAmount/
+                    slPercent;
+
+
+                position={
+
+                    side,
+
+                    entry,
+
+                    sl,
+
+                    notional,
+
+                    time:candle.t,
+
+                    tp1:false,
+                    tp2:false,
+                    tp3:false
+                };
+            }
+        }
+
+
+        /*
+           Equity tracking
+        */
+
+        equity.push(balance);
+
+        peak=
+            Math.max(
+                peak,
+                balance
+            );
+
+        const dd =
+            peak>0
+            ? (peak-balance)/
+              peak*100
+            : 0;
+
+        maxDrawdown =
+            Math.max(
+                maxDrawdown,
+                dd
+            );
+    }
+
+
+    /*
+       Close any remaining position
+       at final candle.
+    */
+
+    if(position){
+
+        const last =
+            candles[candles.length-1];
+
+        const pnl =
+            calculatePnL(
+                position,
+                last.c
+            );
+
+        balance+=pnl;
+
+        trades.push({
+
+            entryTime:
+                position.time,
+
+            side:
+                position.side,
+
+            entry:
+                position.entry,
+
+            exit:
+                last.c,
+
+            pnl,
+
+            reason:
+                "END OF DATA"
+        });
+    }
+
+
+    return {
+
+        initialBalance,
+
+        finalBalance:
+            balance,
+
+        pnl:
+            balance-initialBalance,
+
+        trades,
+
+        equity,
+
+        maxDrawdown
+    };
+}
+
+
+/* =========================================================
+   P&L
+========================================================= */
+
+function calculatePnL(
+    position,
+    exit
+){
+
+    if(position.side==="LONG"){
+
+        return (
+            (
+                exit-position.entry
+            )/
+            position.entry
+        )*
+        position.notional;
+    }
+
+    return (
+        (
+            position.entry-exit
+        )/
+        position.entry
+    )*
+    position.notional;
+}
+
+
+/* =========================================================
+   DISPLAY RESULTS
+========================================================= */
+
+function showResults(result,candles){
+
+    const trades =
+        result.trades;
+
+    const wins =
+        trades.filter(
+            x=>x.pnl>0
+        );
+
+    const losses =
+        trades.filter(
+            x=>x.pnl<=0
+        );
+
+
+    const grossProfit =
+        wins.reduce(
+            (sum,x)=>
+                sum+x.pnl,
+            0
+        );
+
+    const grossLoss =
+        Math.abs(
+            losses.reduce(
+                (sum,x)=>
+                    sum+x.pnl,
+                0
+            )
+        );
+
+
+    const profitFactor =
+        grossLoss>0
+        ? grossProfit/grossLoss
+        : Infinity;
+
+
+    const winRate =
+        trades.length
+        ? wins.length/
+          trades.length*100
+        : 0;
+
+
+    const longTrades =
+        trades.filter(
+            x=>x.side==="LONG"
+        );
+
+    const shortTrades =
+        trades.filter(
+            x=>x.side==="SHORT"
+        );
+
+
+    const longWins =
+        longTrades.filter(
+            x=>x.pnl>0
+        ).length;
+
+
+    const shortWins =
+        shortTrades.filter(
+            x=>x.pnl>0
+        ).length;
+
+
+    $("stats").innerHTML=`
+
+        <div class="stat">
+            <div class="stat-title">
+                Candles
+            </div>
+            <div class="stat-value">
+                ${candles.length.toLocaleString()}
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Trades
+            </div>
+            <div class="stat-value">
+                ${trades.length}
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Win rate
+            </div>
+            <div class="stat-value ${
+                winRate>=50
+                ?"green":"red"
+            }">
+                ${winRate.toFixed(1)}%
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Profit Factor
+            </div>
+            <div class="stat-value">
+                ${
+                    Number.isFinite(profitFactor)
+                    ?profitFactor.toFixed(2)
+                    :"∞"
+                }
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Net P&L
+            </div>
+            <div class="stat-value ${
+                result.pnl>=0
+                ?"green":"red"
+            }">
+                ${result.pnl.toFixed(2)} USDT
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Final Balance
+            </div>
+            <div class="stat-value">
+                ${result.finalBalance.toFixed(2)}
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                Max Drawdown
+            </div>
+            <div class="stat-value red">
+                ${result.maxDrawdown.toFixed(2)}%
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                LONG
+            </div>
+            <div class="stat-value blue">
+                ${longTrades.length}
+                /
+                ${longWins}
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">
+                SHORT
+            </div>
+            <div class="stat-value blue">
+                ${shortTrades.length}
+                /
+                ${shortWins}
+            </div>
+        </div>
+    `;
+
+
+    const rows =
+        trades
+        .slice()
+        .reverse()
+        .slice(0,500);
+
+
+    $("tradeBody").innerHTML =
+        rows.map(
+            trade=>`
+
+            <tr>
+
+                <td>
+                    ${formatDate(
+                        trade.entryTime
+                    )}
+                </td>
+
+                <td class="${
+                    trade.side==="LONG"
+                    ?"green"
+                    :"red"
+                }">
+                    ${trade.side}
+                </td>
+
+                <td>
+                    ${formatPrice(
+                        trade.entry
+                    )}
+                </td>
+
+                <td>
+                    ${formatPrice(
+                        trade.exit
+                    )}
+                </td>
+
+                <td class="${
+                    trade.pnl>=0
+                    ?"green"
+                    :"red"
+                }">
+                    ${trade.pnl.toFixed(2)}
+                </td>
+
+                <td>
+                    ${trade.reason}
+                </td>
+
+            </tr>
+
+            `
+        )
+        .join("");
+}
+
+
+function formatDate(timestamp){
+
+    return new Date(
+        timestamp
+    ).toLocaleString();
+}
+
+
+function formatPrice(price){
+
+    return Number(price)
+        .toLocaleString(
+            undefined,
+            {
+                minimumFractionDigits:2,
+                maximumFractionDigits:2
+            }
+        );
+}
+
+
+/* =========================================================
+   RUN
+========================================================= */
+
+$("runButton").addEventListener(
+    "click",
+    async function(){
+
+        const button =
+            $("runButton");
+
+        button.disabled=true;
+
+        $("progress").value=0;
+
+        $("tradeBody").innerHTML="";
+
+        $("stats").innerHTML=`
+            <div class="stat">
+                <div class="stat-title">
+                    Status
+                </div>
+                <div class="stat-value">
+                    Loading…
+                </div>
+            </div>
+        `;
+
+
+        try{
+
+            $("status").textContent =
+                "Connecting to Bybit…";
+
+
+            const candles =
+                await downloadCandles();
+
+
+            if(candles.length<100){
+
+                throw new Error(
+                    "Bybit returned only "+
+                    candles.length+
+                    " candles. Try a shorter date range."
+                );
+            }
+
+
+            $("progress").value=94;
+
+            $("status").textContent =
+                "Running backtest on "+
+                candles.length.toLocaleString()+
+                " candles…";
+
+
+            /*
+               Give Safari UI a moment to update
+               before the CPU-heavy calculation.
+            */
+
+            await sleep(50);
+
+
+            const result =
+                backtest(candles);
+
+
+            $("progress").value=100;
+
+            showResults(
+                result,
+                candles
+            );
+
+
+            $("status").innerHTML =
+                `<span class="success">
+                    COMPLETE — ${
+                        candles.length.toLocaleString()
+                    } candles downloaded and tested.
+                </span>`;
+
+
+        }catch(error){
+
+            console.error(error);
+
+            $("progress").value=0;
+
+            $("status").innerHTML =
+                `<span class="error">
+                    ERROR: ${
+                        error.message
+                    }
+                </span>`;
+
+        }finally{
+
+            button.disabled=false;
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
