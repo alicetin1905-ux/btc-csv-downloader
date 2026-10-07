@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>BTC CSV Downloader</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #070b11;
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.container {
+    max-width: 620px;
+    margin: auto;
+    padding: 20px 15px;
+}
+
+.card {
+    background: #101722;
+    border: 1px solid #263241;
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 15px;
+}
+
+h1 {
+    margin: 0;
+    font-size: 25px;
+}
+
+.subtitle {
+    color: #8996a6;
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+.badge {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 6px 10px;
+    border-radius: 20px;
+    border: 1px solid #276847;
+    color: #35df91;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+label {
+    display: block;
+    color: #9aa7b7;
+    font-size: 13px;
+    margin-top: 18px;
+    margin-bottom: 7px;
+}
+
+select,
+input,
+button {
+    width: 100%;
+    border-radius: 11px;
+    padding: 14px;
+    font-size: 16px;
+}
+
+select,
+input {
+    background: #080d14;
+    color: white;
+    border: 1px solid #303c4b;
+}
+
+button {
+    margin-top: 22px;
+    border: 0;
+    background: #20d184;
+    color: #04150d;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.45;
+}
+
+.progress {
+    height: 8px;
+    background: #222c38;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 17px;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #20d184;
+    transition: width .2s;
+}
+
+.status {
+    margin-top: 14px;
+    color: #c8d1dc;
+    font-size: 13px;
+    white-space: pre-line;
+    line-height: 1.5;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.stat {
+    background: #080d14;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.stat-number {
+    font-size: 19px;
+    font-weight: bold;
+}
+
+.stat-label {
+    color: #788696;
+    font-size: 11px;
+    margin-top: 3px;
+}
+
+.info {
+    color: #8996a6;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.success {
+    color: #35df91;
+}
+
+.error {
+    color: #ff6575;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="card">
+
+        <h1>₿ BTC Historical Data</h1>
+
+        <div class="subtitle">
+            Download BTC candles als CSV
+        </div>
+
+        <div class="badge">
+            BYBIT TESTNET
+        </div>
+
+        <label>Timeframe</label>
+
+        <select id="timeframe">
+            <option value="5">5 minuten</option>
+            <option value="15">15 minuten</option>
+            <option value="30">30 minuten</option>
+            <option value="60" selected>1 uur</option>
+            <option value="240">4 uur</option>
+            <option value="D">1 dag</option>
+        </select>
+
+        <label>Vanaf</label>
+
+        <input
+            id="startDate"
+            type="date"
+            value="2020-01-01"
+        >
+
+        <label>Tot</label>
+
+        <input
+            id="endDate"
+            type="date"
+        >
+
+        <button id="downloadButton">
+            DOWNLOAD BTC CSV
+        </button>
+
+        <div class="progress">
+            <div
+                id="progressBar"
+                class="progress-bar">
+            </div>
+        </div>
+
+        <div id="status" class="status">
+            Klaar om te downloaden.
+        </div>
+
+        <div class="stats">
+
+            <div class="stat">
+                <div
+                    id="candleCount"
+                    class="stat-number">
+                    0
+                </div>
+
+                <div class="stat-label">
+                    CANDLES
+                </div>
+            </div>
+
+            <div class="stat">
+                <div
+                    id="requestCount"
+                    class="stat-number">
+                    0
+                </div>
+
+                <div class="stat-label">
+                    REQUESTS
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="card info">
+
+        <strong>Wat doet deze pagina?</strong>
+
+        <br><br>
+
+        De pagina haalt historische BTC/USDT
+        candles rechtstreeks op bij de publieke
+        Bybit Testnet API.
+
+        <br><br>
+
+        Je hebt hiervoor geen API-key nodig.
+
+        <br><br>
+
+        Na het downloaden krijg je automatisch
+        een CSV-bestand met:
+
+        <br><br>
+
+        Timestamp<br>
+        Open<br>
+        High<br>
+        Low<br>
+        Close<br>
+        Volume<br>
+        Turnover
+
+    </div>
+
+</div>
+
+<script>
+
+const API_URL =
+    "https://api-testnet.bybit.com/v5/market/kline";
+
+const $ = id =>
+    document.getElementById(id);
+
+
+/* Today's date */
+
+$("endDate").value =
+    new Date().toISOString().slice(0,10);
+
+
+/* Convert milliseconds to UTC */
+
+function utcTime(milliseconds) {
+
+    return new Date(
+        Number(milliseconds)
+    ).toISOString();
+
+}
+
+
+/* Escape CSV values */
+
+function csvEscape(value) {
+
+    value = String(value ?? "");
+
+    if (
+        value.includes(",") ||
+        value.includes('"') ||
+        value.includes("\n")
+    ) {
+
+        return '"' +
+            value.replaceAll('"','""') +
+            '"';
+
+    }
+
+    return value;
+}
+
+
+/* Request candles */
+
+async function getCandles(
+    timeframe,
+    start,
+    end
+) {
+
+    const url =
+        new URL(API_URL);
+
+    url.searchParams.set(
+        "category",
+        "linear"
+    );
+
+    url.searchParams.set(
+        "symbol",
+        "BTCUSDT"
+    );
+
+    url.searchParams.set(
+        "interval",
+        timeframe
+    );
+
+    url.searchParams.set(
+        "start",
+        start
+    );
+
+    url.searchParams.set(
+        "end",
+        end
+    );
+
+    url.searchParams.set(
+        "limit",
+        "1000"
+    );
+
+    const response =
+        await fetch(
+            url.toString(),
+            {
+                cache: "no-store"
+            }
+        );
+
+    if (!response.ok) {
+
+        throw new Error(
+            "Bybit HTTP error: " +
+            response.status
+        );
+
+    }
+
+    const json =
+        await response.json();
+
+    if (json.retCode !== 0) {
+
+        throw new Error(
+            json.retMsg ||
+            "Bybit API error"
+        );
+
+    }
+
+    return (
+        json.result &&
+        json.result.list
+    ) || [];
+
+}
+
+
+/* Create CSV */
+
+function createCSV(rows) {
+
+    let csv =
+        "timestamp_utc,timestamp_ms,open,high,low,close,volume,turnover\n";
+
+    for (const candle of rows) {
+
+        csv += [
+
+            utcTime(candle[0]),
+            candle[0],
+            candle[1],
+            candle[2],
+            candle[3],
+            candle[4],
+            candle[5],
+            candle[6]
+
+        ]
+        .map(csvEscape)
+        .join(",") +
+        "\n";
+
+    }
+
+    return csv;
+
+}
+
+
+/* Download CSV */
+
+function downloadCSV(
+    rows,
+    timeframe
+) {
+
+    const csv =
+        createCSV(rows);
+
+    const blob =
+        new Blob(
+            [csv],
+            {
+                type:
+                "text/csv;charset=utf-8"
+            }
+        );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const link =
+        document.createElement("a");
+
+    const start =
+        $("startDate").value;
+
+    const end =
+        $("endDate").value;
+
+    link.href = url;
+
+    link.download =
+        "BTCUSDT_" +
+        timeframe +
+        "_" +
+        start +
+        "_" +
+        end +
+        ".csv";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    URL.revokeObjectURL(url);
+
+}
+
+
+/* Main downloader */
+
+async function downloadBTC() {
+
+    const timeframe =
+        $("timeframe").value;
+
+    const startDate =
+        $("startDate").value;
+
+    const endDate =
+        $("endDate").value;
+
+    if (!startDate || !endDate) {
+
+        alert(
+            "Kies eerst een begin- en einddatum."
+        );
+
+        return;
+
+    }
+
+    const start =
+        Date.parse(
+            startDate +
+            "T00:00:00.000Z"
+        );
+
+    const end =
+        Date.parse(
+            endDate +
+            "T23:59:59.999Z"
+        );
+
+    if (end < start) {
+
+        alert(
+            "De einddatum moet na de begindatum liggen."
+        );
+
+        return;
+
+    }
+
+    const button =
+        $("downloadButton");
+
+    const status =
+        $("status");
+
+    const progress =
+        $("progressBar");
+
+    const candleCount =
+        $("candleCount");
+
+    const requestCount =
+        $("requestCount");
+
+
+    button.disabled = true;
+
+    progress.style.width = "0%";
+
+    candleCount.textContent = "0";
+
+    requestCount.textContent = "0";
+
+    status.className =
+        "status";
+
+    status.textContent =
+        "BTC-data ophalen...\nEven geduld.";
+
+
+    /*
+       Map prevents duplicate candles.
+    */
+
+    const candles =
+        new Map();
+
+
+    /*
+       Candle duration.
+    */
+
+    let intervalMinutes;
+
+    if (timeframe === "D") {
+
+        intervalMinutes = 1440;
+
+    } else {
+
+        intervalMinutes =
+            Number(timeframe);
+
+    }
+
+
+    const intervalMs =
+        intervalMinutes *
+        60 *
+        1000;
+
+
+    let cursor =
+        start;
+
+    let requests = 0;
+
+
+    try {
+
+        while (cursor <= end) {
+
+            const data =
+                await getCandles(
+                    timeframe,
+                    cursor,
+                    end
+                );
+
+            requests++;
+
+            requestCount.textContent =
+                requests;
+
+
+            if (!data.length) {
+
+                break;
+
+            }
+
+
+            for (const candle of data) {
+
+                const timestamp =
+                    Number(candle[0]);
+
+                if (
+                    timestamp >= start &&
+                    timestamp <= end
+                ) {
+
+                    candles.set(
+                        timestamp,
+                        candle
+                    );
+
+                }
+
+            }
+
+
+            candleCount.textContent =
+                candles.size.toLocaleString();
+
+
+            /*
+               Estimate progress.
+            */
+
+            const totalRange =
+                end - start;
+
+            const currentRange =
+                Math.min(
+                    end,
+                    cursor +
+                    intervalMs *
+                    1000
+                ) - start;
+
+            let percent =
+                totalRange > 0
+                ? currentRange /
+                  totalRange *
+                  100
+                : 100;
+
+
+            /*
+               Because Bybit returns
+               newest candles first,
+               find newest timestamp.
+            */
+
+            let newest =
+                Math.max(
+                    ...data.map(
+                        x => Number(x[0])
+                    )
+                );
+
+
+            const next =
+                newest +
+                intervalMs;
+
+
+            progress.style.width =
+                Math.min(
+                    99,
+                    Math.max(
+                        5,
+                        percent
+                    )
+                ) + "%";
+
+
+            status.textContent =
+                "BTC-data ophalen...\n" +
+                candles.size.toLocaleString() +
+                " candles";
+
+
+            /*
+               If less than 1000 candles
+               were returned, we reached
+               the end.
+            */
+
+            if (data.length < 1000) {
+
+                break;
+
+            }
+
+
+            if (next <= cursor) {
+
+                break;
+
+            }
+
+
+            cursor = next;
+
+
+            /*
+               Small delay prevents
+               unnecessary API pressure.
+            */
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        100
+                    )
+            );
+
+        }
+
+
+        /*
+           Sort oldest → newest.
+        */
+
+        const rows =
+            Array.from(
+                candles.values()
+            )
+            .sort(
+                (a,b) =>
+                    Number(a[0]) -
+                    Number(b[0])
+            );
+
+
+        if (!rows.length) {
+
+            throw new Error(
+                "Bybit heeft geen candles teruggegeven. Probeer een kortere periode."
+            );
+
+        }
+
+
+        downloadCSV(
+            rows,
+            timeframe
+        );
+
+
+        progress.style.width =
+            "100%";
+
+        status.className =
+            "status success";
+
+        status.textContent =
+            "KLAAR ✓\n" +
+            rows.length.toLocaleString() +
+            " candles gedownload.\n\n" +
+            "Je CSV-download zou nu moeten starten.";
+
+
+    }
+    catch (error) {
+
+        console.error(error);
+
+        status.className =
+            "status error";
+
+        status.textContent =
+            "FOUT\n\n" +
+            error.message +
+            "\n\n" +
+            "Controleer je internetverbinding " +
+            "en probeer opnieuw.";
+
+    }
+    finally {
+
+        button.disabled =
+            false;
+
+    }
+
+}
+
+
+/* Button */
+
+$("downloadButton")
+    .addEventListener(
+        "click",
+        downloadBTC
+    );
+
+</script>
+
+</body>
+</html>
