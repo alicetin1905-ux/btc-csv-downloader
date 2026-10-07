@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BTC Historical CSV Downloader</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#070b11;
+  color:#fff;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif
+}
+.container{max-width:620px;margin:auto;padding:20px 15px}
+.card{
+  background:#101722;
+  border:1px solid #263241;
+  border-radius:18px;
+  padding:20px;
+  margin-bottom:15px
+}
+h1{margin:0;font-size:25px}
+.subtitle{color:#8996a6;margin-top:5px;font-size:14px}
+.badge{
+  display:inline-block;
+  margin-top:15px;
+  padding:6px 10px;
+  border-radius:20px;
+  border:1px solid #276847;
+  color:#35df91;
+  font-size:11px;
+  font-weight:bold
+}
+label{
+  display:block;
+  color:#9aa7b7;
+  font-size:13px;
+  margin-top:18px;
+  margin-bottom:7px
+}
+select,input,button{
+  width:100%;
+  border-radius:11px;
+  padding:14px;
+  font-size:16px
+}
+select,input{
+  background:#080d14;
+  color:#fff;
+  border:1px solid #303c4b
+}
+button{
+  margin-top:22px;
+  border:0;
+  background:#20d184;
+  color:#04150d;
+  font-weight:800
+}
+button:disabled{opacity:.45}
+.progress{
+  height:8px;
+  background:#222c38;
+  border-radius:20px;
+  overflow:hidden;
+  margin-top:17px
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:#20d184;
+  transition:width .2s
+}
+.status{
+  margin-top:14px;
+  color:#c8d1dc;
+  font-size:13px;
+  white-space:pre-line;
+  line-height:1.5
+}
+.success{color:#35df91}
+.error{color:#ff6575}
+.stats{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:14px
+}
+.stat{
+  background:#080d14;
+  border-radius:10px;
+  padding:12px
+}
+.number{font-size:19px;font-weight:bold}
+.small{color:#788696;font-size:11px;margin-top:3px}
+.info{
+  color:#8996a6;
+  font-size:12px;
+  line-height:1.6
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+
+<h1>₿ BTC Historical Data</h1>
+
+<div class="subtitle">
+Download volledige BTC/USDT historische candles
+</div>
+
+<div class="badge">
+BYBIT TESTNET
+</div>
+
+<label>Timeframe</label>
+
+<select id="timeframe">
+<option value="5">5 minuten</option>
+<option value="15">15 minuten</option>
+<option value="30">30 minuten</option>
+<option value="60" selected>1 uur</option>
+<option value="240">4 uur</option>
+<option value="D">1 dag</option>
+</select>
+
+<label>Vanaf</label>
+
+<input id="startDate" type="date" value="2020-01-01">
+
+<label>Tot</label>
+
+<input id="endDate" type="date">
+
+<button id="downloadButton">
+DOWNLOAD VOLLEDIGE BTC CSV
+</button>
+
+<div class="progress">
+<div id="progressBar" class="progress-bar"></div>
+</div>
+
+<div id="status" class="status">
+Klaar.
+</div>
+
+<div class="stats">
+
+<div class="stat">
+<div id="candleCount" class="number">0</div>
+<div class="small">CANDLES</div>
+</div>
+
+<div class="stat">
+<div id="requestCount" class="number">0</div>
+<div class="small">REQUESTS</div>
+</div>
+
+</div>
+
+</div>
+
+<div class="card info">
+
+<strong>Belangrijk</strong>
+
+<br><br>
+
+Deze versie gebruikt echte paginering.
+
+Bybit geeft maximaal 1.000 candles per request.
+De downloader gaat daarom automatisch terug in de tijd
+tot hij de gekozen begindatum bereikt.
+
+<br><br>
+
+Bijvoorbeeld:
+
+<br>
+
+<strong>2020 → 2026 / 1H</strong>
+
+<br>
+
+wordt automatisch verdeeld over meerdere requests.
+
+<br><br>
+
+Geen API-key nodig.
+
+</div>
+
+</div>
+
+<script>
+
+const API =
+"https://api-testnet.bybit.com/v5/market/kline";
+
+const $ = id =>
+document.getElementById(id);
+
+
+/* Today's date */
+
+$("endDate").value =
+new Date().toISOString().slice(0,10);
+
+
+/* Convert timestamp */
+
+function utc(ms){
+
+return new Date(
+Number(ms)
+).toISOString();
+
+}
+
+
+/* CSV escaping */
+
+function csvEscape(value){
+
+value=String(value ?? "");
+
+if(
+value.includes(",") ||
+value.includes('"') ||
+value.includes("\n")
+){
+
+return '"' +
+value.replaceAll('"','""') +
+'"';
+
+}
+
+return value;
+
+}
+
+
+/* Get one Bybit page */
+
+async function getPage(
+timeframe,
+start,
+end
+){
+
+const url =
+new URL(API);
+
+url.searchParams.set(
+"category",
+"linear"
+);
+
+url.searchParams.set(
+"symbol",
+"BTCUSDT"
+);
+
+url.searchParams.set(
+"interval",
+timeframe
+);
+
+url.searchParams.set(
+"start",
+String(start)
+);
+
+url.searchParams.set(
+"end",
+String(end)
+);
+
+url.searchParams.set(
+"limit",
+"1000"
+);
+
+const response =
+await fetch(
+url.toString(),
+{
+cache:"no-store"
+}
+);
+
+if(!response.ok){
+
+throw new Error(
+"Bybit HTTP "+response.status
+);
+
+}
+
+const json =
+await response.json();
+
+if(json.retCode !== 0){
+
+throw new Error(
+json.retMsg ||
+"Bybit API error"
+);
+
+}
+
+return json.result?.list || [];
+
+}
+
+
+/* Create CSV */
+
+function makeCSV(rows){
+
+let csv =
+"timestamp_utc,timestamp_ms,open,high,low,close,volume,turnover\n";
+
+for(const c of rows){
+
+csv += [
+
+utc(c[0]),
+c[0],
+c[1],
+c[2],
+c[3],
+c[4],
+c[5],
+c[6]
+
+]
+.map(csvEscape)
+.join(",")
++"\n";
+
+}
+
+return csv;
+
+}
+
+
+/* Save CSV */
+
+function saveCSV(
+rows,
+timeframe
+){
+
+const blob =
+new Blob(
+[
+makeCSV(rows)
+],
+{
+type:"text/csv;charset=utf-8"
+}
+);
+
+const url =
+URL.createObjectURL(blob);
+
+const a =
+document.createElement("a");
+
+a.href=url;
+
+a.download =
+"BTCUSDT_"+
+timeframe+"_"+
+$("startDate").value+"_"+
+$("endDate").value+
+".csv";
+
+document.body.appendChild(a);
+
+a.click();
+
+a.remove();
+
+setTimeout(
+()=>URL.revokeObjectURL(url),
+1000
+);
+
+}
+
+
+/* Main downloader */
+
+async function downloadBTC(){
+
+const timeframe =
+$("timeframe").value;
+
+const startDate =
+$("startDate").value;
+
+const endDate =
+$("endDate").value;
+
+if(!startDate || !endDate){
+
+alert(
+"Kies een begin- en einddatum."
+);
+
+return;
+
+}
+
+const start =
+Date.parse(
+startDate+
+"T00:00:00.000Z"
+);
+
+const end =
+Date.parse(
+endDate+
+"T23:59:59.999Z"
+);
+
+if(end < start){
+
+alert(
+"Einddatum moet na begindatum liggen."
+);
+
+return;
+
+}
+
+const button =
+$("downloadButton");
+
+const status =
+$("status");
+
+const progress =
+$("progressBar");
+
+const count =
+$("candleCount");
+
+const requests =
+$("requestCount");
+
+
+button.disabled=true;
+
+progress.style.width="0%";
+
+count.textContent="0";
+
+requests.textContent="0";
+
+status.className="status";
+
+status.textContent =
+"BTC-data ophalen...\n"+
+"Alle historische pagina's worden geladen.";
+
+
+/*
+IMPORTANT:
+
+Bybit returns newest → oldest.
+
+Therefore we start at the requested END
+and move backwards.
+
+This is the fix for the previous 1,000-candle problem.
+*/
+
+
+const candles =
+new Map();
+
+
+let intervalMinutes;
+
+if(timeframe==="D"){
+
+intervalMinutes=1440;
+
+}else{
+
+intervalMinutes=
+Number(timeframe);
+
+}
+
+const intervalMs =
+intervalMinutes*
+60*
+1000;
+
+
+/*
+Current right edge.
+*/
+
+let pageEnd=end;
+
+let requestNumber=0;
+
+try{
+
+while(pageEnd >= start){
+
+const data =
+await getPage(
+timeframe,
+start,
+pageEnd
+);
+
+requestNumber++;
+
+requests.textContent =
+requestNumber;
+
+
+if(!data.length){
+
+break;
+
+}
+
+
+/*
+Store candles.
+*/
+
+for(const candle of data){
+
+const timestamp =
+Number(candle[0]);
+
+if(
+timestamp >= start &&
+timestamp <= end
+){
+
+candles.set(
+timestamp,
+candle
+);
+
+}
+
+}
+
+
+/*
+Find OLDEST candle
+in this response.
+*/
+
+const timestamps =
+data.map(
+c => Number(c[0])
+);
+
+const oldest =
+Math.min(
+...timestamps
+);
+
+const newest =
+Math.max(
+...timestamps
+);
+
+
+/*
+Progress is based on
+how far backwards we have gone.
+*/
+
+const total =
+end-start;
+
+const covered =
+end-oldest;
+
+let percent =
+total > 0
+? (covered/total)*100
+: 100;
+
+percent =
+Math.max(
+1,
+Math.min(
+99,
+percent
+)
+);
+
+progress.style.width =
+percent+"%";
+
+
+count.textContent =
+candles.size.toLocaleString();
+
+
+status.textContent =
+"BTC-data ophalen...\n"+
+candles.size.toLocaleString()+
+" candles\n"+
+"Request "+
+requestNumber+
+"\n"+
+"Oudste geladen: "+
+utc(oldest).slice(0,10);
+
+
+/*
+We reached the beginning.
+*/
+
+if(oldest <= start){
+
+break;
+
+}
+
+
+/*
+If fewer than 1,000 rows,
+there is no more page.
+*/
+
+if(data.length < 1000){
+
+break;
+
+}
+
+
+/*
+MOVE BACKWARD.
+
+This is the critical fix.
+
+Do NOT use newest + interval.
+
+Use oldest - 1 ms.
+*/
+
+const nextEnd =
+oldest-1;
+
+
+/*
+Safety check.
+*/
+
+if(nextEnd >= pageEnd){
+
+throw new Error(
+"Paginering kon niet verder terug."
+);
+
+}
+
+pageEnd =
+nextEnd;
+
+
+/*
+Small pause between requests.
+*/
+
+await new Promise(
+resolve =>
+setTimeout(
+resolve,
+100
+)
+);
+
+}
+
+
+/*
+Convert Map to array.
+*/
+
+const rows =
+Array.from(
+candles.values()
+)
+.sort(
+(a,b)=>
+Number(a[0])-
+Number(b[0])
+);
+
+
+if(!rows.length){
+
+throw new Error(
+"Geen BTC candles ontvangen."
+);
+
+}
+
+
+/*
+Download.
+*/
+
+saveCSV(
+rows,
+timeframe
+);
+
+
+progress.style.width =
+"100%";
+
+status.className =
+"status success";
+
+status.textContent =
+"KLAAR ✓\n"+
+rows.length.toLocaleString()+
+" candles gedownload.\n"+
+"Van "+
+utc(rows[0][0]).slice(0,10)+
+" tot "+
+utc(rows[rows.length-1][0]).slice(0,10)+
+"\n"+
+"Requests: "+
+requestNumber;
+
+
+}
+catch(error){
+
+console.error(error);
+
+status.className =
+"status error";
+
+status.textContent =
+"FOUT\n\n"+
+error.message+
+"\n\n"+
+"Probeer eerst 1H van 2025 → vandaag.";
+
+}
+finally{
+
+button.disabled=false;
+
+}
+
+}
+
+
+/* Button */
+
+$("downloadButton")
+.addEventListener(
+"click",
+downloadBTC
+);
+
+</script>
+
+</body>
+</html>
